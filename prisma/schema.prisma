@@ -10,18 +10,21 @@ datasource db {
 }
 
 model User {
-  id                      String    @id @default(uuid()) @db.Uuid
+  id                      String      @id @default(uuid()) @db.Uuid
   name                    String
-  email                   String    @unique
+  email                   String      @unique
   password                String
-  emailVerified           Boolean   @default(false)
-  verificationToken       String?   @unique
+  emailVerified           Boolean     @default(false)
+  verificationToken       String?     @unique
   verificationTokenExpiry DateTime?
-  resetToken              String?   @unique
+  resetToken              String?     @unique
   resetTokenExpiry        DateTime?
-  onBoarding              Boolean   @default(false)
-  createdAt               DateTime  @default(now()) @map("create_at")
+  onBoarding              Boolean     @default(false)
+  createdAt               DateTime    @default(now()) @map("create_at")
   sessions                Session[]
+  userSkills              UserSkill[]
+  seekerMatches           Match[]     @relation("SeekerMatches")
+  offererMatches          Match[]     @relation("OffererMatches")
 }
 
 model Session {
@@ -34,4 +37,54 @@ model Session {
   createdAt DateTime @default(now())
 
   @@index([userId])
+}
+
+enum SkillKind {
+  OFFER
+  SEEK
+}
+
+enum MatchStatus {
+  ACTIVE
+  CANCELLED
+  COMPLETED
+}
+
+model Skill {
+  id         String      @id @default(uuid()) @db.Uuid
+  name       String      @unique
+  category   String?
+  approved   Boolean     @default(true)
+  userSkills UserSkill[]
+  matches    Match[]
+}
+
+model UserSkill {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @db.Uuid
+  skillId   String    @db.Uuid
+  kind      SkillKind
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  skill     Skill     @relation(fields: [skillId], references: [id])
+
+  @@unique([userId, skillId, kind])
+  @@index([skillId, kind])
+  @@index([userId, kind])
+}
+
+model Match {
+  id        String      @id @default(uuid()) @db.Uuid
+  skillId   String      @db.Uuid
+  seekerId  String      @db.Uuid
+  offererId String      @db.Uuid
+  status    MatchStatus @default(ACTIVE)
+  createdAt DateTime    @default(now())
+  skill     Skill       @relation(fields: [skillId], references: [id])
+  seeker    User        @relation("SeekerMatches", fields: [seekerId], references: [id], onDelete: Cascade)
+  offerer   User        @relation("OffererMatches", fields: [offererId], references: [id], onDelete: Cascade)
+
+  @@index([offererId])
+  @@index([seekerId])
+  @@index([skillId, status])
 }
